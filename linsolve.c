@@ -163,6 +163,7 @@ int main()
 
 	free(A);
 	free(b);
+	free(soln);
 
 	return 0;
 }
