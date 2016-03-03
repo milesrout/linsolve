@@ -1,3 +1,4 @@
+#include <complex.h>
 #include "linsolve.h"
 
 #define exit_if_incompatible(a, b) exit_if((a)->num_cols != (b)->num_rows, "incompatible dimensions")
@@ -8,10 +9,31 @@
 	exit(EXIT_FAILURE);\
 } } while (0)
 
+void print_num(complex double z)
+{
+	double a, b;
+	a = creal(z);
+	b = cimag(z);
+
+	if (a == 0.0 && b == 0.0) {
+		printf("0");
+	} else if (a == 0.0) {
+		printf("%.3lfi", b);
+	} else if (b == 0.0) {
+		printf("%.3lf", a);
+	} else {
+		if (b > 0.0) {
+			printf("%.3lf + %.3lfi", a, b);
+		} else {
+			printf("%.3lf - %.3lfi", a, -b);
+		}
+	}
+}
+
 void swap_rows(struct matrix *m, struct matrix *v, size_t r1, size_t r2)
 {
 	size_t i;
-	double temp;
+	double complex temp;
 
 	exit_if_incompatible(m, v);
 	exit_if_invalid_row(m, r1);
@@ -27,7 +49,7 @@ void swap_rows(struct matrix *m, struct matrix *v, size_t r1, size_t r2)
 	}
 }
 
-void scale_row(struct matrix *m, struct matrix *v, size_t row, double factor)
+void scale_row(struct matrix *m, struct matrix *v, size_t row, double complex factor)
 {
 	size_t i;
 
@@ -40,7 +62,7 @@ void scale_row(struct matrix *m, struct matrix *v, size_t row, double factor)
 	}
 }
 
-void add_multiple(struct matrix *m, struct matrix *v, size_t r1, size_t r2, double factor)
+void add_multiple(struct matrix *m, struct matrix *v, size_t r1, size_t r2, double complex factor)
 {
 	size_t i;
 
@@ -60,7 +82,7 @@ void partial_pivot(struct matrix *m, struct matrix *v, size_t j)
 	size_t i, best_idx;
 
 	for (i = j; i < m->num_rows; i++) {
-		double candidate = fabs(get(m, i, j));
+		double candidate = cabs(get(m, i, j));
 		if (candidate > best_val) {
 			best_val = candidate;
 			best_idx = i;
@@ -75,7 +97,7 @@ void partial_pivot(struct matrix *m, struct matrix *v, size_t j)
 void row_reduction(struct matrix *m, struct matrix *v)
 {
 	size_t i, j, max;
-	double a, b;
+	double complex a, b;
 
 	if (m->num_cols > m->num_rows) {
 		max = m->num_cols;
@@ -92,17 +114,16 @@ void row_reduction(struct matrix *m, struct matrix *v)
 	}
 }
 
-double *back_substitution(struct matrix *m, struct matrix *v)
+double complex *back_substitution(struct matrix *m, struct matrix *v)
 {
 	int i, j;
-	double *results;
+	double complex *results;
 
-	results = malloc(sizeof(double) * v->num_rows);
+	results = malloc(sizeof(double complex) * v->num_rows);
 	for (i = m->num_rows - 1; i >= 0; i--) {
 		results[i] = get(v, i, 0);
 		for (j = m->num_cols - 2; j > i; j--) {
 			results[i] -= get(m, i, j) * results[j];
-			printf("(%d, %d)\n", i, j);
 		}
 		results[i] /= get(m, i, i);
 	}
@@ -110,17 +131,16 @@ double *back_substitution(struct matrix *m, struct matrix *v)
 	return results;
 }
 
-double *gauss_jordan(struct matrix *m, struct matrix *v)
+double complex *gauss_jordan(struct matrix *m, struct matrix *v)
 {
 	row_reduction(m, v);
-	if (1) { print_matrix(stdout, "A", m); print_matrix(stdout, "b", v); }
 	return back_substitution(m, v);
 }
 
 int main()
 {
 	struct matrix *A, *b;
-	double *soln;
+	double complex *soln;
 	int i, j;
 
 	A = scan_matrix();
@@ -137,7 +157,8 @@ int main()
 
 	soln = gauss_jordan(A, b);
 	for (i = 0; i < b->num_rows; i++) {
-		printf("%lf\n", soln[i]);
+		print_num(soln[i]); 
+		printf("\n");
 	}
 
 	free(A);
@@ -153,18 +174,19 @@ void print_matrix(FILE *stream, const char *name, struct matrix *m)
 	for (i = 0; i < m->num_rows; i++) {
 		printf("\t");
 		for (j = 0; j < m->num_cols; j++) {
-			printf("%lf ", get(m, i, j));
+			double complex a = get(m, i, j);
+			printf("("); print_num(a); printf(") ");
 		}
 		printf("\n");
 	}
 }
 
 #define make_ref(m, row, col) ((m)->data + (row) * (m)->num_cols + (col))
-double get(struct matrix *m, size_t row, size_t col)
+double complex get(struct matrix *m, size_t row, size_t col)
 {
 	return *make_ref(m, row, col);
 }
-void set(struct matrix *m, size_t row, size_t col, double d)
+void set(struct matrix *m, size_t row, size_t col, double complex d)
 {
 	*make_ref(m, row, col) = d;
 }
@@ -177,13 +199,16 @@ struct matrix *scan_matrix()
 	scanf("%lu %lu", &num_rows, &num_cols);
 	size = num_rows * num_cols;
 
-	m = malloc(sizeof(size_t)*2 + sizeof(double)*size);
+	m = malloc(sizeof(size_t)*2 + sizeof(double complex)*size);
 	if (m == NULL) abort();
 	m->num_rows = num_rows;
 	m->num_cols = num_cols;
 
 	for (i = 0; i < size; i++) {
-		scanf("%lf", m->data + i);
+		double real, imag;
+		scanf("%lf", &real);
+		scanf("%lf", &imag);
+		m->data[i] = CMPLX(real, imag);
 	}
 
 	return m;
