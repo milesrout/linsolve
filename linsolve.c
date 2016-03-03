@@ -2,6 +2,7 @@
 
 #define exit_if_incompatible(a, b) exit_if((a)->num_cols != (b)->num_rows, "incompatible dimensions")
 #define exit_if_invalid_row(a, i) exit_if((i) >= (a)->num_rows, "row out of bounds")
+#define exit_if_zero(a) exit_if((a) == 0.0, "matrix is singular")
 #define exit_if(condition, message) do { if (condition) {\
 	fprintf(stderr, "%s\n", message);\
 	exit(EXIT_FAILURE);\
@@ -54,23 +55,64 @@ void add_multiple(struct matrix *m, struct matrix *v, size_t r1, size_t r2, doub
 	}
 }
 
+void partial_pivot(struct matrix *m, struct matrix *v, size_t j)
+{
+	double best_val = 0.0;
+	size_t i, best_idx;
+
+	for (i = j; i < m->num_rows; i++) {
+		double candidate = fabs(get(m, i, j));
+		if (candidate > best_val) {
+			best_val = candidate;
+			best_idx = i;
+		}
+	}
+
+	exit_if_zero(best_val);
+
+	swap_rows(m, v, best_idx, j);
+}
+
 void row_reduction(struct matrix *m, struct matrix *v)
 {
-	size_t i, j;
+	size_t i, j, max;
 	double a, b;
 
-	for (i = 0; i < m->num_rows; i++) {
-		a = get(m, i, i);
-		for (j = i + 1; j < m->num_cols; j++) {
-			b = get(m, j, i);
-			add_multiple(m, v, j, i, -b/a);
+	if (m->num_cols > m->num_rows) {
+		max = m->num_cols;
+	} else {
+		max = m->num_rows;
+	}
+	for (j = 0; j < max; j++) {
+		partial_pivot(m, v, j);
+		a = get(m, j, j);
+		for (i = j + 1; i < m->num_rows; i++) {
+			b = get(m, i, j);
+			add_multiple(m, v, i, j, -b/a);
 		}
+	}
+}
+
+void back_substitution(struct matrix *m, struct matrix *v)
+{
+	int i, j;
+	double a, b;
+
+	for (j = m->num_cols - 1; j >= 1; j--) {
+		a = get(m, j, j);
+		for (i = j - 1; i >= 0; i--)  {
+			b = get(m, i, j);
+			add_multiple(m, v, i, j, -b/a);
+		}
+		scale_row(m, v, j, 1.0/a);
 	}
 }
 
 void gauss_jordan(struct matrix *m, struct matrix *v)
 {
 	row_reduction(m, v);
+	if (0) { print_matrix(stdout, "A", m); print_matrix(stdout, "b", v); }
+	back_substitution(m, v);
 }
 
 int main()
@@ -90,15 +132,11 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	printf("%s\n", "=== BEFORE ===");
-	print_matrix(stdout, "A", A);
-	print_matrix(stdout, "b", b);
-	
 	gauss_jordan(A, b);
 
-	printf("%s\n", "=== AFTER ===");
-	print_matrix(stdout, "A", A);
-	print_matrix(stdout, "b", b);
+	for (i = 0; i < b->num_rows; i++) {
+		printf("%lf\n", get(b, i, 0));
+	}
 
 	free(A);
 	free(b);
