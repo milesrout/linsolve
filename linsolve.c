@@ -54,11 +54,23 @@ void add_multiple(struct matrix *m, struct matrix *v, size_t r1, size_t r2, doub
 	}
 }
 
+void row_reduction(struct matrix *m, struct matrix *v)
+{
+	size_t i, j;
+	double a, b;
+
+	for (i = 0; i < m->num_rows; i++) {
+		a = get(m, i, i);
+		for (j = i + 1; j < m->num_cols; j++) {
+			b = get(m, j, i);
+			add_multiple(m, v, j, i, -b/a);
+		}
+	}
+}
+
 void gauss_jordan(struct matrix *m, struct matrix *v)
 {
-	swap_rows(m, v, 0, 1);
-	scale_row(m, v, 1, 2);
-	add_multiple(m, v, 0, 1, (1.0/3.0));
+	row_reduction(m, v);
 }
 
 int main()
