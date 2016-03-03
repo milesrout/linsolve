@@ -7,7 +7,6 @@
 	fprintf(stderr, "%s\n", message);\
 	exit(EXIT_FAILURE);\
 } } while (0)
-#define exits(m, v, r1, r2)\
 
 void swap_rows(struct matrix *m, struct matrix *v, size_t r1, size_t r2)
 {
@@ -93,31 +92,35 @@ void row_reduction(struct matrix *m, struct matrix *v)
 	}
 }
 
-void back_substitution(struct matrix *m, struct matrix *v)
+double *back_substitution(struct matrix *m, struct matrix *v)
 {
 	int i, j;
-	double a, b;
+	double *results;
 
-	for (j = m->num_cols - 1; j >= 1; j--) {
-		a = get(m, j, j);
-		for (i = j - 1; i >= 0; i--)  {
-			b = get(m, i, j);
-			add_multiple(m, v, i, j, -b/a);
+	results = malloc(sizeof(double) * v->num_rows);
+	for (i = m->num_rows - 1; i >= 0; i--) {
+		results[i] = get(v, i, 0);
+		for (j = m->num_cols - 2; j > i; j--) {
+			results[i] -= get(m, i, j) * results[j];
+			printf("(%d, %d)\n", i, j);
 		}
-		scale_row(m, v, j, 1.0/a);
+		results[i] /= get(m, i, i);
 	}
+
+	return results;
 }
 
-void gauss_jordan(struct matrix *m, struct matrix *v)
+double *gauss_jordan(struct matrix *m, struct matrix *v)
 {
 	row_reduction(m, v);
-	if (0) { print_matrix(stdout, "A", m); print_matrix(stdout, "b", v); }
-	back_substitution(m, v);
+	if (1) { print_matrix(stdout, "A", m); print_matrix(stdout, "b", v); }
+	return back_substitution(m, v);
 }
 
 int main()
 {
 	struct matrix *A, *b;
+	double *soln;
 	int i, j;
 
 	A = scan_matrix();
@@ -132,10 +135,9 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	gauss_jordan(A, b);
-
+	soln = gauss_jordan(A, b);
 	for (i = 0; i < b->num_rows; i++) {
-		printf("%lf\n", get(b, i, 0));
+		printf("%lf\n", soln[i]);
 	}
 
 	free(A);
